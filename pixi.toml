@@ -54,6 +54,7 @@ pip = ">=26.0.1, <27"
 wheel = ">=0.46.3, <0.47"
 psutil = ">=7.2.2, <8"
 mujoco = ">=3.7.0, <4"
+huggingface-hub = ">=1.11.0, <2"
 
 [tasks]
 setup-blender = """
