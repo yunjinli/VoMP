@@ -341,7 +341,69 @@ def load_object(object_path: str) -> None:
     else:
         import_function(filepath=object_path)
 
+def apply_shadeless_vomp_materials() -> None:
+    """
+    Properly overrides materials for VoMP inference by making them shadeless (Emission).
+    Gracefully handles standard Image Textures, SAM3D Vertex Colors, and solid fallback colors.
+    """
+    import bpy
 
+    # Clear any global material overrides that might force a clay look
+    if bpy.context.scene.view_layers.get("View Layer"):
+        bpy.context.scene.view_layers["View Layer"].material_override = None
+
+    for obj in bpy.context.scene.objects:
+        if obj.type != 'MESH':
+            continue
+
+        # 1. Safely detect if this specific mesh uses Vertex Colors
+        vcol_name = None
+        if hasattr(obj.data, "color_attributes") and obj.data.color_attributes:
+            vcol_name = obj.data.color_attributes[0].name
+        elif hasattr(obj.data, "vertex_colors") and obj.data.vertex_colors:
+            vcol_name = obj.data.vertex_colors[0].name
+
+        # Ensure the object actually has a material slot
+        if not obj.material_slots:
+            mat = bpy.data.materials.new(name=f"VompMat_{obj.name}")
+            obj.data.materials.append(mat)
+
+        # 2. Process each material intelligently
+        for slot in obj.material_slots:
+            mat = slot.material
+            if not mat:
+                continue
+            
+            mat.use_nodes = True
+            nodes = mat.node_tree.nodes
+            links = mat.node_tree.links
+
+            # Find the final output node (or create one)
+            out_node = nodes.get("Material Output") or next((n for n in nodes if n.type == 'OUTPUT_MATERIAL'), None)
+            if not out_node:
+                out_node = nodes.new('ShaderNodeOutputMaterial')
+
+            # Look for existing data the importer might have brought in
+            img_node = next((n for n in nodes if n.type == 'TEX_IMAGE'), None)
+            bsdf_node = next((n for n in nodes if n.type == 'BSDF_PRINCIPLED'), None)
+
+            # Create our shadeless Emission node
+            emit = nodes.new('ShaderNodeEmission')
+
+            # 3. PRIORITY ROUTING: Image > Vertex Color > Solid Color > White
+            if img_node:
+                links.new(img_node.outputs[0], emit.inputs['Color'])
+            elif vcol_name:
+                attr_node = nodes.new('ShaderNodeAttribute')
+                attr_node.attribute_name = vcol_name
+                links.new(attr_node.outputs['Color'], emit.inputs['Color'])
+            elif bsdf_node and bsdf_node.inputs.get('Base Color'):
+                # Copy the default solid color if there is no texture
+                emit.inputs['Color'].default_value = bsdf_node.inputs['Base Color'].default_value
+
+            # Finally, connect the Emission shader straight to the surface output
+            links.new(emit.outputs['Emission'], out_node.inputs['Surface'])
+            
 def delete_invisible_objects() -> None:
     """Deletes all invisible objects in the scene.
 
@@ -545,6 +607,7 @@ def main(arg):
     else:
         init_scene()
         load_object(arg.object)
+        apply_shadeless_vomp_materials()
         if arg.split_normal:
             split_mesh_normal()
         # delete_custom_normals()

@@ -213,4 +213,18 @@ marimo/_lsp/
 __marimo__/
 
 # Streamlit
-.streamlit/secrets.toml
+.streamlit/secrets.toml# pixi environments
+.pixi/*
+!.pixi/config.toml
+weights/*
+
+!weights/download.sh
+!weights/download_vomp_weights.sh
+.polyscope.ini
+
+blender-3.0.1-linux-x64.tar.xz
+blender-3.0.1-linux-x64
+*.npz
+*.obj
+*.glb
+imgui.ini

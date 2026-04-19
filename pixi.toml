@@ -1,0 +1,89 @@
+[workspace]
+authors = ["Jim Li <yunjin.li0817@gmail.com>"]
+channels = ["conda-forge"]
+name = "VoMP"
+platforms = ["linux-64"]
+version = "0.1.0"
+
+[activation.env]
+# Point Blender to the local directory we will extract it to
+BLENDER_BIN = "${PIXI_PROJECT_ROOT}/blender-3.0.1-linux-x64/blender"
+
+# Point to your SYSTEM CUDA installation. 
+# /usr/local/cuda is the standard symlink on Ubuntu/Linux. 
+# Change this if your system path is specifically /usr/local/cuda-12.8
+CUDA_HOME = "/usr/local/cuda-12.8/"
+
+[dependencies]
+# Base environment (Removed cuda-toolkit so it defaults to system)
+python = "3.10.*"
+cmake = "*"
+ninja = "*"
+gcc_linux-64 = "11.*"
+gxx_linux-64 = "11.*"
+# OpenGL dependency from conda
+mesa-libgl-devel-cos7-x86_64 = "*"
+[pypi-options]
+extra-index-urls = ["https://download.pytorch.org/whl/cu128"]
+
+[pypi-dependencies]
+# PyTorch ecosystem
+Pillow = "==11.0.0"
+safetensors = "==0.6.2"
+easydict = "==1.13"
+scipy = "==1.14.1"
+
+pyparsing = "==3.2.3"
+opencv-python-headless = "==4.10.0.84"
+numpy = "==1.26.4"
+matplotlib = "==3.7.5"
+
+torch = "==2.7.0"
+torchvision = "==0.22.0"
+xformers = "*"
+torch-tensorrt = "==2.7.0"
+polyscope = "==2.5.0"
+typing = "==3.7.4.3"
+trimesh = "==4.8.1"
+# CUDA 12 specific packages (Forward compatible with 12.8)
+spconv-cu120 = "*"
+
+# Local Editable Packages
+vomp = { path = ".", editable = true }
+pip = ">=26.0.1, <27"
+wheel = ">=0.46.3, <0.47"
+psutil = ">=7.2.2, <8"
+mujoco = ">=3.7.0, <4"
+
+[tasks]
+setup-blender = """
+wget -nc https://download.blender.org/release/Blender3.0/blender-3.0.1-linux-x64.tar.xz && \
+tar -xf blender-3.0.1-linux-x64.tar.xz
+"""
+download-initial-weights = "bash weights/download.sh"
+download-vomp-weights = "bash weights/download_vomp_weights.sh"
+# install-txt-reqs = "pip install -r requirements_inference.txt -r requirements_dev.txt"
+install-diff-rasterization = { cmd = "pip install git+https://github.com/graphdeco-inria/diff-gaussian-rasterization.git@59f5f77e3ddbac3ed9db93ec2cfe99ed6c5d121d --no-build-isolation" }
+install-flashattn = { cmd = "pip install flash-attn --no-build-isolation --no-cache-dir" }
+install-vox2seq = { cmd = "pip install extensions/vox2seq/ --no-build-isolation" }
+install-kaolin = { cmd = "pip install kaolin==0.18.0 -f https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch-2.7.0_cu128.html" }
+install-utils3d = { cmd = "pip install git+https://github.com/EasternJournalist/utils3d.git@9a4eb15e4021b67b12c460c7057d642626897ec8 --no-build-isolation" }
+install-nvdiffrast = { cmd = "pip install git+https://github.com/NVlabs/nvdiffrast.git@v0.3.3 --no-build-isolation" }
+
+## Step 1: pixi install
+## Step 2: pixi run install-nvdiffrast
+## Step 3: pixi run download-vomp-weights
+## Step 4: pixi run setup-blender
+## --> Done
+## Quick test: pixi run demo
+
+demo = { cmd = "python demo.py" }
+
+install-submodules = { depends-on = [
+    'install-diff-rasterization',
+    'install-flashattn',
+    'install-vox2seq',
+    'install-kaolin',
+    'install-utils3d',
+    'install-nvdiffrast',
+] }
